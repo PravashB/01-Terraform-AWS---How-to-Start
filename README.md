@@ -49,6 +49,7 @@ terraform-aws-lab/
     ├── main.tf
     └── outputs.tf
 
+![alt text](image-1.png)
 
 ---
 
@@ -91,6 +92,7 @@ terraform-aws-lab/
    - Default region name: `us-east-1` (or your favorite)  
    - Default output format: `json`
 
+    ![alt text](image-2.png)
 3. **Test**:  
    ```bash
    aws sts get-caller-identity
@@ -120,7 +122,7 @@ terraform-aws-lab/
 Create a new folder `terraform-aws-lab/` and inside it, create four files.
 
 ### 1. `provider.tf`
-
+You can always copy the latest available provider details from [Terraform Website](https://registry.terraform.io/providers/hashicorp/aws/latest) or mention as below for above a certain version.
 ```hcl
 terraform {
   required_version = ">= 1.0.0"
@@ -139,7 +141,7 @@ provider "aws" {
 
 > **Why?**  
 > - Defines which provider (AWS) and version to use.  
-> - Sets the AWS region from a variable.
+> - Sets the AWS region from a variable. We're actually not hardcoding the region. It's a best practice for flexibility, reusability and clean design.
 
 ---
 
@@ -159,8 +161,8 @@ variable "bucket_name" {
 ```
 
 > **Why?**  
-> - `aws_region`: So you can change regions easily.  
-> - `bucket_name`: Forces you to pick a unique S3 bucket name.
+> - `aws_region`: So you can change regions easily without editing the .tf code (Applying the environmental variables or create a terraform.tfvars file or dynamically in scripts or pipelines)
+> - `bucket_name`: Since we've not set the default, it forces us to pick a unique S3 bucket name.
 
 ---
 
@@ -181,8 +183,10 @@ resource "aws_s3_bucket" "lab_bucket" {
 ```
 
 > **Why?**  
-> - Provisions a simple S3 bucket.  
-> - Demonstrates resources and outputs.
+> - Provisions a simple S3 bucket whose name has to be manually entered during terraform plan.
+> - Terraform will name the resource internally as `aws_s3_bucket.lab_bucket`.
+> - `bucket = var.bucket_name` sets the actual S3 bucket name that we're pulling from the `variables.tf`. Additionally, we can pass this value through different input variables.
+> - The reason we're using a variable to create a bucket name is because S3 bucket names must be **globally unique**, so we can't hardcode and reuse the same names across envs. or projects.
 
 ---
 
@@ -197,6 +201,11 @@ output "bucket_domain_name" {
 ```
 > _(You can either include in the `main.tf` or split!)_
 
+> **Why?**  
+> - `bucket_domain_name` is a terraform attribute provided by AWS provider which gives us the DNS endpoint that we can use to access the bucket **(if it's public)**
+> - We can use this value to access public files via a URL, Integrate with CloudFront or Set up website hosting.
+> - Also helpful to **pass outputs** from one module to another, **Connect resources together** and can be used **automatically in CI/CD pipelines**.
+
 ---
 
 ## ⚙️ Step 5: Initialize, Plan, and Apply
@@ -208,14 +217,27 @@ From your `terraform-aws-lab/` folder:
    terraform init
    ```
    - Downloads the AWS provider plugin.
+   ![alt text](image-3.png)
 
 2. **Validate & Plan**  
    ```bash
    terraform validate
-   terraform plan -out=tfplan
    ```
    - `validate` checks syntax.  
+   ![alt text](image-4.png)
+   Let's understand in detail about the warning. It' a **Older Code** and triggered this deprecation code expects us to do this separately using `aws_s3_bucket_versioning`. We'll understand the correct way (modular, new style) in the later sections. For now, just understand that S3 buckets can have multiple independent features (versioning, encryption, replication, logging, etc.) and Managing them separately is cleaner, more modular, easier to maintain.
+  
+   ```bash
+   terraform plan -out=tfplan
+   ```
    - `plan` shows what will happen.
+   ![alt text](image-8.png)
+   Let's understand why I used the command `terraform plan -out=tfplan` instead of the regular `terraform plan`.
+
+      ![alt text](image-7.png)
+   It guarantee that what we saw during `plan` is exactly what we apply. This is super important during Production Deployments, CI/CD automation.
+   The **RISK** in doing a regular `terraform plan` and `terraform apply` is that they are separate and resources might have changed between them.
+   However, The Professional/Production way is to do: `terraform plan -out=tfplan`, `terraform show tfplan` & `terraform apply tfplan` and ✅ Now what you planned is 100% what you apply. No surprises.
 
 3. **Apply**  
    ```bash
@@ -223,14 +245,16 @@ From your `terraform-aws-lab/` folder:
    ```
    - Type **yes** when prompted.  
    - Watch AWS spin up your S3 bucket!
+   ![alt text](image-9.png)
 
 ---
 
 ## 🔍 Step 6: Verify Your Resources
 
-- In the AWS Console → S3 → you should see your new bucket.  
+- In the AWS Console → S3 → you should see your new bucket.
+![alt text](image-10.png)
 - Back in your terminal, Terraform will have printed your `bucket_domain_name`.
-
+  ![alt text](image-11.png)
 ---
 
 ## 🧹 Step 7: Clean Up (Destroy)
@@ -240,7 +264,7 @@ When you’re done:
 ```bash
 terraform destroy -auto-approve
 ```
-
+ ![alt text](image-12.png)
 This removes all resources Terraform created, so you don’t get any surprise AWS bills.
 
 ---
