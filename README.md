@@ -1,7 +1,9 @@
 
-## 🚀 Terraform & AWS Lab: Your First Cloud Automation Project
+## Terraform & AWS Lab: Creating an S3 Bucket
 
-> _“Imagine Learning Terraform during your summer vacations when you're on 11th Grade?! This is going to be that simple!!”_
+> _“Learning Terraform here is like building Lego — just way cooler!”_
+
+![alt text](image-13.png)
 
 Welcome to my hands-on Terraform + AWS lab! This guide will take you through every single step, from setting up your AWS credentials to writing your first Terraform configuration. I’ll explain everything in a way that’s easy to understand, even your tech-savvy 15-year-old cousin could follow along. So, grab your **laptop** and let’s get started!
 
@@ -27,7 +29,7 @@ Welcome to my hands-on Terraform + AWS lab! This guide will take you through eve
 
 ---
 
-## 🛠️ Prerequisites
+## Prerequisites
 
 Before we start, make sure you have:
 
@@ -53,7 +55,7 @@ terraform-aws-lab/
 
 ---
 
-## 👤 Step 1: Create an AWS IAM User
+## Step 1: Create an AWS IAM User
 
 1. **Log in** to the [AWS Management Console](https://console.aws.amazon.com/).  
 2. In the top search bar, type **IAM** and click **IAM**.  
@@ -61,7 +63,7 @@ terraform-aws-lab/
 4. Enter a **User name** (e.g. `terraform-lab-user`).  
 5. Under **Select AWS access type**, check **Programmatic access**.  
 6. Click **Next: Permissions**.  
-7. Choose **Attach existing policies directly** → search for and check **AdministratorAccess** (for learning only; in real projects, give minimal permissions!).  
+7. Choose **Attach policies directly** → search for and check **AdministratorAccess** (for learning only; in real projects, give minimal permissions!).  
 8. Click **Next: Tags** → you can skip or add tags → **Next: Review**.  
 9. Click **Create user**.  
 10. On the success page, **Download .csv** or copy the **Access key ID** and **Secret access key**.  
@@ -69,7 +71,7 @@ terraform-aws-lab/
 
 ---
 
-## 💻 Step 2: Install & Configure the AWS CLI
+## Step 2: Install & Configure the AWS CLI
 
 1. **Install**:  
    - **macOS**:  
@@ -92,7 +94,9 @@ terraform-aws-lab/
    - Default region name: `us-east-1` (or your favorite)  
    - Default output format: `json`
 
-    ![alt text](image-2.png)
+     ![alt text](image-2.png)
+   - I'm not going to store the AWS Credentials in `provider.tf`as it can accidentaly expose them in source control tools. And is Bad for automation. Read Best Practices for more!!
+
 3. **Test**:  
    ```bash
    aws sts get-caller-identity
@@ -101,7 +105,7 @@ terraform-aws-lab/
 
 ---
 
-## 📦 Step 3: Install Terraform
+## Step 3: Install Terraform
 
 1. **Download** the latest Terraform from https://www.terraform.io/downloads.html  
 2. **Unzip** and move to your PATH.  
@@ -117,19 +121,18 @@ terraform-aws-lab/
 
 ---
 
-## ✍️ Step 4: Write Your Terraform Configuration
+## Step 4: Write Your Terraform Configuration
 
 Create a new folder `terraform-aws-lab/` and inside it, create four files.
 
 ### 1. `provider.tf`
-You can always copy the latest available provider details from [Terraform Website](https://registry.terraform.io/providers/hashicorp/aws/latest) or mention as below for above a certain version.
+You can always copy the latest available provider details from [Terraform Website](https://registry.terraform.io/providers/hashicorp/aws/latest).
 ```hcl
 terraform {
-  required_version = ">= 1.0.0"
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = "~> 4.0"
+      source = "hashicorp/aws"
+      version = "5.94.1"
     }
   }
 }
@@ -139,9 +142,8 @@ provider "aws" {
 }
 ```
 
-> **Why?**  
-> - Defines which provider (AWS) and version to use.  
-> - Sets the AWS region from a variable. We're actually not hardcoding the region. It's a best practice for flexibility, reusability and clean design.
+> - Here I've defined which provider (AWS) and version to use.
+> - I've also set the AWS region from a variable. We're not hardcoding the region. It's a best practice for flexibility, reusability and clean design.
 
 ---
 
@@ -160,8 +162,8 @@ variable "bucket_name" {
 }
 ```
 
-> **Why?**  
-> - `aws_region`: So you can change regions easily without editing the .tf code (Applying the environmental variables or create a terraform.tfvars file or dynamically in scripts or pipelines)
+> - `aws_region`: So you can change regions easily without editing the .tf code (Applying the environmental variables or create a terraform.tfvars file or dynamically in scripts or pipelines).
+> - Also, I can remove the default argument and can manually choose to enter during `plan`. 
 > - `bucket_name`: Since we've not set the default, it forces us to pick a unique S3 bucket name.
 
 ---
@@ -169,21 +171,18 @@ variable "bucket_name" {
 ### 3. `main.tf`
 
 ```hcl
-# Create an S3 bucket
 resource "aws_s3_bucket" "lab_bucket" {
   bucket = var.bucket_name
   acl    = "private"
 
-  tags = {
-    Name        = "TerraformLabBucket"
-    Environment = "Dev"
+  versioning {
+    enabled = true
   }
 }
-
 ```
 
-> **Why?**  
-> - Provisions a simple S3 bucket whose name has to be manually entered during terraform plan.
+> - I created a resource block of `resource type` "aws_s3_bucket" and `resource name` "lab_bucket".
+> - This will provision a simple S3 bucket whose name has to be manually entered during terraform plan.
 > - Terraform will name the resource internally as `aws_s3_bucket.lab_bucket`.
 > - `bucket = var.bucket_name` sets the actual S3 bucket name that we're pulling from the `variables.tf`. Additionally, we can pass this value through different input variables.
 > - The reason we're using a variable to create a bucket name is because S3 bucket names must be **globally unique**, so we can't hardcode and reuse the same names across envs. or projects.
@@ -193,15 +192,13 @@ resource "aws_s3_bucket" "lab_bucket" {
 ### 4. `outputs.tf`
 
 ```hcl
-# Output the bucket domain name
 output "bucket_domain_name" {
   description = "The DNS name of the S3 bucket"
   value       = aws_s3_bucket.lab_bucket.bucket_domain_name
 }
 ```
-> _(You can either include in the `main.tf` or split!)_
+> _(You can either include in the `main.tf` or split as a separate outputs.tf!)_
 
-> **Why?**  
 > - `bucket_domain_name` is a terraform attribute provided by AWS provider which gives us the DNS endpoint that we can use to access the bucket **(if it's public)**
 > - We can use this value to access public files via a URL, Integrate with CloudFront or Set up website hosting.
 > - Also helpful to **pass outputs** from one module to another, **Connect resources together** and can be used **automatically in CI/CD pipelines**.
@@ -225,7 +222,7 @@ From your `terraform-aws-lab/` folder:
    ```
    - `validate` checks syntax.  
    ![alt text](image-4.png)
-   Let's understand in detail about the warning. It' a **Older Code** and triggered this deprecation code expects us to do this separately using `aws_s3_bucket_versioning`. We'll understand the correct way (modular, new style) in the later sections. For now, just understand that S3 buckets can have multiple independent features (versioning, encryption, replication, logging, etc.) and Managing them separately is cleaner, more modular, easier to maintain.
+   Let's understand in detail about the warning. It' a **Older Code** practice and enabling the versions triggered this warning. It expects us to do this separately using `aws_s3_bucket_versioning`. We'll understand the correct way (modular, new style) in the later sections. For now, just understand that S3 buckets can have multiple independent features (versioning, encryption, replication, logging, etc.) and Managing them separately is cleaner, more modular, easier to maintain.
   
    ```bash
    terraform plan -out=tfplan
@@ -235,9 +232,15 @@ From your `terraform-aws-lab/` folder:
    Let's understand why I used the command `terraform plan -out=tfplan` instead of the regular `terraform plan`.
 
       ![alt text](image-7.png)
-   It guarantee that what we saw during `plan` is exactly what we apply. This is super important during Production Deployments, CI/CD automation.
-   The **RISK** in doing a regular `terraform plan` and `terraform apply` is that they are separate and resources might have changed between them.
-   However, The Professional/Production way is to do: `terraform plan -out=tfplan`, `terraform show tfplan` & `terraform apply tfplan` and ✅ Now what you planned is 100% what you apply. No surprises.
+   - It guarantee that what we saw during `plan` is exactly what we apply. This is super important during Production Deployments, CI/CD automation.
+   - The **RISK** in doing a regular `terraform plan` is that it shows the proposed changes on screen but doesn't save them. While `terraform plan -out=tfplan` saves the plan into a file (`tfplan`).
+   - By the time we do a `terraform apply` the resources might have changed between them.
+
+   However, The Professional and Production way is to do:
+   - `terraform plan -out=tfplan`
+   - `terraform show tfplan`
+   - `terraform apply tfplan`
+   This ensures what we planned is 100% what we applied. No surprises.
 
 3. **Apply**  
    ```bash
@@ -249,7 +252,7 @@ From your `terraform-aws-lab/` folder:
 
 ---
 
-## 🔍 Step 6: Verify Your Resources
+## Step 6: Verify Your Resources
 
 - In the AWS Console → S3 → you should see your new bucket.
 ![alt text](image-10.png)
@@ -257,7 +260,7 @@ From your `terraform-aws-lab/` folder:
   ![alt text](image-11.png)
 ---
 
-## 🧹 Step 7: Clean Up (Destroy)
+## Step 7: Clean Up (Destroy)
 
 When you’re done:
 
@@ -269,25 +272,10 @@ This removes all resources Terraform created, so you don’t get any surprise AW
 
 ---
 
-## 🎯 Next Steps & Challenges
-
-1. **Add a DynamoDB table** to your lab:  
-   - Create `aws_dynamodb_table` resource.  
-   - Practice defining keys & attributes.
-
-2. **Use variables and locals** to configure tags dynamically.  
-
-3. **Experiment** with other AWS services:  
-   - EC2 instances  
-   - IAM roles & policies  
-   - VPC networks  
-
-4. **Challenge**:  
-   - Write a Terraform module that creates both an S3 bucket and a DynamoDB table in one reusable package.
-
----
-
-👏 **Congratulations!**  
-You’ve just automated cloud infrastructure with Terraform on AWS. Keep exploring, tweaking variables, and trying new AWS services. Cloud automation awaits! 🚀  
+**Congratulations!**  
+You’ve just automated cloud infrastructure with Terraform on AWS. Keep exploring, tweaking variables, and trying new AWS services. Cloud automation awaits!
 
 ```
+---
+Prepared by: Pravash
+Last Updated: April 2025
