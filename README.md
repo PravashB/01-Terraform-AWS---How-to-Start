@@ -10,7 +10,7 @@ Welcome to my hands-on Terraform + AWS lab! This guide will take you through eve
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. Prerequisites
 2. Project Structure
@@ -40,7 +40,7 @@ Before we start, make sure you have:
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 When we’re done, your folder will look like this:
 
@@ -205,7 +205,7 @@ output "bucket_domain_name" {
 
 ---
 
-## ⚙️ Step 5: Initialize, Plan, and Apply
+## Step 5: Initialize, Plan, and Apply
 
 From your `terraform-aws-lab/` folder:
 
